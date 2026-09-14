@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"], // Cambiado a ES2022 para mayor compatibilidad con Node.js
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "node", // Cambiado a "node" para entornos de Node.js
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* TypeScript + Node.js */
+    "types": ["node"] // Añadido para incluir tipos de Node.js
+  },
+  "include": ["vite.config.ts"]
+}
