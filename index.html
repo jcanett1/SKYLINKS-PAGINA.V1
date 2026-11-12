@@ -9,9 +9,11 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-<!-- Widget de chat Skylinks V2 - letras visibles + tarjetas de producto — pegar ANTES de </body> en index.html del repo jcanett1/SKYLINKS-PAGINA
-     y publicar en GitHub Pages igual que hoy. Solo funciona cuando n8n ya tenga HTTPS
-     (https://n8n.skylinks.com.mx/webhook/skylinks-web). No toca nada más de la página. -->
+<!-- Widget de chat Skylinks V4 — vista previa de producto — pegar ANTES de </body> en index.html del repo jcanett1/SKYLINKS-PAGINA
+     y publicar en Bolt igual que hoy. No toca n8n: el flujo web v2.8 ya manda id, titulo, marca, modelo, precio, imagen, stock y garantia.
+     SOLO hay que llenar las 2 constantes SUPABASE_URL y SUPABASE_ANON_KEY con los mismos valores del .env de Bolt (la anon key es pública, va en el navegador).
+     El botón "Ver producto" ya NO usa el link de Syscom (era una ruta relativa /producto/... que en skylinks.com.mx no existe y por eso no abría nada):
+     ahora abre una vista previa en la misma página con todas las fotos, descripción, características, documentos, cantidad, agregar al carrito y cotizar por WhatsApp. -->
 <div id="sk-chat-btn" title="Chatea con Skylinks">💬</div>
 <div id="sk-chat" style="display:none">
   <div id="sk-chat-head">Skylinks <span>¿En qué te ayudamos?</span>
@@ -22,6 +24,13 @@
   <div id="sk-chat-row">
     <input id="sk-chat-input" type="text" placeholder="Escribe tu mensaje…" maxlength="500" autocomplete="off">
     <button id="sk-chat-send" type="button">➤</button>
+  </div>
+</div>
+<div id="sk-det" style="display:none">
+  <div id="sk-det-back"></div>
+  <div id="sk-det-box">
+    <button id="sk-det-close" type="button">✕</button>
+    <div id="sk-det-body"></div>
   </div>
 </div>
 <style>
@@ -46,15 +55,48 @@
 #sk-chat-send{border:0;background:#0b3d66;color:#fff;width:48px;cursor:pointer;font-size:16px}
 
 .sk-prod{max-width:100%!important;display:flex;gap:10px;background:#fff;border:1px solid #ddd;border-radius:12px;padding:8px;margin-top:6px;align-items:flex-start}
-.sk-prod img{width:64px;height:64px;object-fit:contain;flex-shrink:0;background:#f4f7fa;border-radius:8px}
-.sk-prod b{display:block;font-size:13px;line-height:1.3;color:#222}
+.sk-prod img{width:64px;height:64px;object-fit:contain;flex-shrink:0;background:#f4f7fa;border-radius:8px;cursor:pointer}
+.sk-prod b{display:block;font-size:13px;line-height:1.3;color:#222;cursor:pointer}
 .sk-prod span{display:block;font-size:12px;color:#555;line-height:1.4}
 .sk-prod .sk-price{font-size:13px;font-weight:700;color:#0b3d66}
-.sk-prod a{font-size:12px;color:#0b3d66}
+.sk-prod button.sk-ver{margin-top:4px;font-size:12px;font-weight:700;color:#0b3d66;background:none;border:0;padding:0;cursor:pointer;text-decoration:underline}
+
+/* Vista previa de producto */
+#sk-det{position:fixed;inset:0;z-index:10000;font-family:system-ui,Arial,sans-serif}
+#sk-det-back{position:absolute;inset:0;background:rgba(0,0,0,.75)}
+#sk-det-box{position:relative;max-width:640px;width:calc(100vw - 32px);max-height:88vh;overflow-y:auto;margin:6vh auto 0;
+  background:#fff;color:#222;border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.4)}
+#sk-det-close{position:sticky;top:0;float:right;width:32px;height:32px;border-radius:50%;border:0;background:#eee;color:#222;font-size:15px;cursor:pointer}
+#sk-det-body img.sk-det-main{width:100%;max-height:300px;object-fit:contain;background:#f4f7fa;border-radius:12px}
+#sk-det-body .sk-det-thumbs{display:flex;gap:6px;margin-top:8px;overflow-x:auto;padding-bottom:4px}
+#sk-det-body .sk-det-thumbs img{width:56px;height:56px;object-fit:contain;background:#f4f7fa;border-radius:8px;cursor:pointer;border:2px solid transparent;flex-shrink:0}
+#sk-det-body .sk-det-thumbs img.sel{border-color:#0b3d66}
+#sk-det-body h3{font-size:18px;margin:12px 0 4px;line-height:1.3}
+#sk-det-body .sk-det-meta{font-size:13px;color:#555;line-height:1.5}
+#sk-det-body .sk-det-price{font-size:22px;font-weight:800;color:#0b3d66;margin:8px 0}
+#sk-det-body .sk-det-stock{font-size:13px;font-weight:700;color:#0a7a3d}
+#sk-det-body .sk-det-stock.no{color:#888}
+#sk-det-body h4{font-size:15px;margin:16px 0 6px}
+#sk-det-body ul{font-size:13px;color:#333;line-height:1.5;padding-left:18px;margin:0}
+#sk-det-body .sk-det-desc{font-size:13px;color:#333;line-height:1.6}
+#sk-det-body .sk-det-desc p{margin:0 0 8px}
+#sk-det-body .sk-det-desc ul{margin:0 0 8px}
+#sk-det-body .sk-det-doc{display:block;font-size:13px;color:#0b3d66;margin-top:4px}
+#sk-det-body .sk-det-row{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+#sk-det-body .sk-det-qty{display:flex;align-items:center;border:1px solid #ddd;border-radius:10px;overflow:hidden}
+#sk-det-body .sk-det-qty button{width:34px;height:40px;border:0;background:#f4f7fa;font-size:17px;cursor:pointer}
+#sk-det-body .sk-det-qty span{width:36px;text-align:center;font-weight:700}
+#sk-det-body .sk-det-btn{flex:1;min-width:150px;padding:11px 12px;border-radius:10px;border:0;font-size:14px;font-weight:700;cursor:pointer}
+#sk-det-body .sk-det-add{background:#c8f542;color:#000}
+#sk-det-body .sk-det-wa{background:#fff;color:#0b3d66;border:1px solid #0b3d66}
+#sk-det-body .sk-det-msg{font-size:13px;margin-top:10px;color:#0a7a3d;font-weight:700}
 </style>
 <script>
 (function(){
   var URL='https://n8n.skylinks.com.mx/webhook/skylinks-web';
+  var SUPABASE_URL='TU_SUPABASE_URL';       // <-- mismo VITE_SUPABASE_URL del .env de Bolt
+  var SUPABASE_ANON_KEY='TU_SUPABASE_ANON_KEY'; // <-- mismo VITE_SUPABASE_ANON_KEY del .env de Bolt
+  var WA_NUMBER='526221225103';
   var sid=localStorage.getItem('sk_sid');
   if(!sid){ sid='web-'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); localStorage.setItem('sk_sid',sid); }
   var btn=document.getElementById('sk-chat-btn'), box=document.getElementById('sk-chat'),
@@ -63,12 +105,108 @@
   nameInput.value=localStorage.getItem('sk_name')||'';
   nameInput.addEventListener('change',function(){ localStorage.setItem('sk_name',nameInput.value.trim()); });
   function add(t,cls){ var d=document.createElement('div'); d.className=cls; d.textContent=t; msgs.appendChild(d); msgs.scrollTop=msgs.scrollHeight; }
+  function money(n){ return '$'+Number(n||0).toLocaleString('es-MX',{minimumFractionDigits:2})+' MXN'; }
   btn.addEventListener('click',function(){
     var open=box.style.display==='none'; box.style.display=open?'flex':'none';
     if(open && !msgs.children.length) add('¡Hola! Soy del equipo de Skylinks. ¿En qué te ayudamos hoy?','bot');
     if(open) input.focus();
   });
   document.getElementById('sk-chat-close').addEventListener('click',function(){ box.style.display='none'; });
+
+  /* ---- Vista previa de producto ---- */
+  var det=document.getElementById('sk-det'), detBody=document.getElementById('sk-det-body');
+  function closeDet(){ det.style.display='none'; detBody.innerHTML=''; }
+  document.getElementById('sk-det-close').addEventListener('click',closeDet);
+  document.getElementById('sk-det-back').addEventListener('click',closeDet);
+
+  function getSession(){
+    var s=localStorage.getItem('skylinks_session');
+    if(!s){ s=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():'ses-'+Math.random().toString(36).slice(2)+Date.now().toString(36); localStorage.setItem('skylinks_session',s); }
+    return s;
+  }
+  async function addToCart(p,qty,msgEl){
+    msgEl.textContent='Agregando…';
+    try{
+      var base=SUPABASE_URL+'/rest/v1/cart_items';
+      var h={'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'};
+      var chk=await fetch(base+'?user_session=eq.'+encodeURIComponent(getSession())+'&product_id=eq.'+encodeURIComponent(p.id)+'&select=id,quantity',{headers:h});
+      var found=chk.ok?await chk.json():[];
+      if(found && found.length){
+        var r2=await fetch(base+'?id=eq.'+found[0].id,{method:'PATCH',headers:h,body:JSON.stringify({quantity:(found[0].quantity||1)+qty})});
+        if(!r2.ok) throw new Error('PATCH '+r2.status);
+      }else{
+        var r3=await fetch(base,{method:'POST',headers:Object.assign({'Prefer':'return=minimal'},h),
+          body:JSON.stringify({user_session:getSession(),product_id:String(p.id),product_name:p.titulo||p.modelo,product_image:p.imagen||'',product_price:Number(p.precio||0),product_sku:p.modelo||'',quantity:qty,category:'chat'})});
+        if(!r3.ok) throw new Error('POST '+r3.status);
+      }
+      msgEl.textContent='✓ Agregado al carrito. Lo verás al abrir el carrito.';
+    }catch(e){ msgEl.textContent='No se pudo agregar al carrito. Cotízalo por WhatsApp.'; }
+  }
+
+  async function openDet(p){
+    det.style.display='block';
+    detBody.innerHTML='<p style="font-size:14px">Cargando detalles…</p>';
+    var d=null;
+    try{
+      var r=await fetch(SUPABASE_URL+'/functions/v1/syscom-api/productos/'+encodeURIComponent(p.id)+'?imagenes=1&descripcion=1&recursos=1&moneda=mxn',
+        {headers:{'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'}});
+      if(r.ok){ var j=await r.json(); d=Array.isArray(j)?j[0]:j; }
+    }catch(e){}
+    var precio=(d&&d.precios)?parseFloat(d.precios.precio_lista||d.precios.precio_1||'0')||Number(p.precio||0):Number(p.precio||0);
+    var stock=(d&&d.total_existencia!=null)?d.total_existencia:(p.stock||0);
+    var imgs=(d&&d.imagenes&&d.imagenes.length)?d.imagenes:(p.imagen?[p.imagen]:[]);
+    var qty=1;
+    var html='';
+    if(imgs.length) html+='<img class="sk-det-main" src="'+imgs[0]+'" alt="">';
+    if(imgs.length>1){
+      html+='<div class="sk-det-thumbs">'+imgs.map(function(s,i){
+        return '<img src="'+s+'" data-i="'+i+'" class="'+(i===0?'sel':'')+'">';
+      }).join('')+'</div>';
+    }
+    html+='<h3></h3>';
+    html+='<p class="sk-det-meta"></p>';
+    html+='<p class="sk-det-price">'+money(precio)+'</p>';
+    html+='<p class="sk-det-stock'+(stock>0?'':' no')+'">'+(stock>0?('Stock: '+stock+' unidades'):'Agotado')+'</p>';
+    html+='<div class="sk-det-row"><div class="sk-det-qty"><button type="button" data-q="-1">−</button><span>1</span><button type="button" data-q="1">+</button></div>'
+      +'<button type="button" class="sk-det-btn sk-det-add" '+(stock>0?'':'disabled style="opacity:.5"')+'>Agregar al carrito</button>'
+      +'<button type="button" class="sk-det-btn sk-det-wa">Cotizar por WhatsApp</button></div>'
+      +'<p class="sk-det-msg"></p>';
+    if(d&&d.caracteristicas&&d.caracteristicas.length){
+      html+='<h4>Características</h4><ul>'+d.caracteristicas.map(function(c){return '<li></li>';}).join('')+'</ul>';
+    }
+    if(d&&d.descripcion){ html+='<h4>Descripción</h4><div class="sk-det-desc">'+d.descripcion+'</div>'; }
+    if(d&&d.recursos&&d.recursos.length){
+      html+='<h4>Documentos</h4>'+d.recursos.map(function(x){return '<a class="sk-det-doc" href="'+x.path+'" target="_blank" rel="noopener"></a>';}).join('');
+    }
+    detBody.innerHTML=html;
+    detBody.querySelector('h3').textContent=(d&&d.titulo)||p.titulo||p.modelo||'';
+    detBody.querySelector('.sk-det-meta').textContent=((d&&d.marca)||p.marca||'')+' · Modelo: '+((d&&d.modelo)||p.modelo||'')+((d&&d.garantia)||p.garantia?(' · Garantía: '+((d&&d.garantia)||p.garantia)):'');
+    if(d&&d.caracteristicas){ detBody.querySelectorAll('ul li').forEach(function(li,i){ li.textContent=d.caracteristicas[i]; }); }
+    if(d&&d.recursos){ detBody.querySelectorAll('.sk-det-doc').forEach(function(a,i){ a.textContent=d.recursos[i].recurso||'Descargar documento'; }); }
+    var main=detBody.querySelector('.sk-det-main');
+    detBody.querySelectorAll('.sk-det-thumbs img').forEach(function(t){
+      t.addEventListener('click',function(){
+        if(main) main.src=t.src;
+        detBody.querySelectorAll('.sk-det-thumbs img').forEach(function(x){x.classList.remove('sel');});
+        t.classList.add('sel');
+      });
+    });
+    var qtyEl=detBody.querySelector('.sk-det-qty span');
+    detBody.querySelectorAll('.sk-det-qty button').forEach(function(b){
+      b.addEventListener('click',function(){
+        qty=Math.max(1,Math.min(stock>0?stock:99,qty+Number(b.getAttribute('data-q'))));
+        qtyEl.textContent=qty;
+      });
+    });
+    var addBtn=detBody.querySelector('.sk-det-add');
+    var msgEl=detBody.querySelector('.sk-det-msg');
+    if(addBtn) addBtn.addEventListener('click',function(){ addToCart({id:p.id,titulo:(d&&d.titulo)||p.titulo,modelo:(d&&d.modelo)||p.modelo,imagen:imgs[0]||'',precio:precio},qty,msgEl); });
+    detBody.querySelector('.sk-det-wa').addEventListener('click',function(){
+      var txt='Hola Skylinks, me interesa '+((d&&d.titulo)||p.titulo||p.modelo)+' ('+((d&&d.modelo)||p.modelo)+') - '+money(precio)+'. ¿Me lo cotizas con instalación?';
+      window.open('https://wa.me/'+WA_NUMBER+'?text='+encodeURIComponent(txt),'_blank');
+    });
+  }
+
   async function send(){
     var text=input.value.trim(); if(!text) return;
     add(text,'yo'); input.value='';
@@ -81,12 +219,13 @@
       if(data.products && data.products.length){ data.products.forEach(function(p){
         var card=document.createElement('div'); card.className='sk-prod';
         var info=document.createElement('div');
-        if(p.imagen){ var im=document.createElement('img'); im.src=p.imagen; im.alt=p.titulo||''; card.appendChild(im); }
-        var t=document.createElement('b'); t.textContent=p.titulo||p.modelo||''; info.appendChild(t);
+        if(p.imagen){ var im=document.createElement('img'); im.src=p.imagen; im.alt=p.titulo||''; im.addEventListener('click',function(){ openDet(p); }); card.appendChild(im); }
+        var t=document.createElement('b'); t.textContent=p.titulo||p.modelo||''; t.addEventListener('click',function(){ openDet(p); }); info.appendChild(t);
         var s=document.createElement('span'); s.textContent=(p.marca||'')+' '+(p.modelo||''); info.appendChild(s);
-        if(p.precio){ var pr=document.createElement('span'); pr.className='sk-price'; pr.textContent='$'+Number(p.precio).toLocaleString('es-MX',{minimumFractionDigits:2})+' MXN'; info.appendChild(pr); }
+        if(p.precio){ var pr=document.createElement('span'); pr.className='sk-price'; pr.textContent=money(p.precio); info.appendChild(pr); }
         var st=document.createElement('span'); st.textContent=p.stock>0?('Stock: '+p.stock+' unidades'+(p.garantia?' · Garantía: '+p.garantia:'')):'Agotado'; info.appendChild(st);
-        if(p.link){ var a=document.createElement('a'); a.href=p.link; a.target='_blank'; a.rel='noopener'; a.textContent='Ver producto'; info.appendChild(a); }
+        var b=document.createElement('button'); b.type='button'; b.className='sk-ver'; b.textContent='Ver producto';
+        b.addEventListener('click',function(){ openDet(p); }); info.appendChild(b);
         card.appendChild(info); msgs.appendChild(card); msgs.scrollTop=msgs.scrollHeight;
       }); }
     }catch(e){ add('No pude conectar con el chat. Escríbenos por WhatsApp al +52 622 122 5103.','err'); }
