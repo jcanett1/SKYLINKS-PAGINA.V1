@@ -9,5 +9,72 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+<!-- Widget de chat Skylinks — pegar ANTES de </body> en index.html del repo jcanett1/SKYLINKS-PAGINA
+     y publicar en GitHub Pages igual que hoy. Solo funciona cuando n8n ya tenga HTTPS
+     (https://n8n.skylinks.com.mx/webhook/skylinks-web). No toca nada más de la página. -->
+<div id="sk-chat-btn" title="Chatea con Skylinks">💬</div>
+<div id="sk-chat" style="display:none">
+  <div id="sk-chat-head">Skylinks <span>¿En qué te ayudamos?</span>
+    <button id="sk-chat-close" type="button">✕</button>
+  </div>
+  <div id="sk-chat-msgs"></div>
+  <input id="sk-chat-name" type="text" placeholder="Tu nombre (opcional)" maxlength="40" autocomplete="off">
+  <div id="sk-chat-row">
+    <input id="sk-chat-input" type="text" placeholder="Escribe tu mensaje…" maxlength="500" autocomplete="off">
+    <button id="sk-chat-send" type="button">➤</button>
+  </div>
+</div>
+<style>
+#sk-chat-btn{position:fixed;right:18px;bottom:18px;z-index:9998;width:56px;height:56px;border-radius:50%;
+  background:#0b3d66;color:#fff;font-size:26px;border:0;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3);
+  display:flex;align-items:center;justify-content:center}
+#sk-chat{position:fixed;right:18px;bottom:86px;z-index:9999;width:min(340px,calc(100vw - 36px));height:430px;
+  background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.3);display:flex;flex-direction:column;
+  overflow:hidden;font-family:system-ui,Arial,sans-serif}
+#sk-chat-head{background:#0b3d66;color:#fff;padding:12px 14px;font-weight:700;font-size:15px}
+#sk-chat-head span{display:block;font-weight:400;font-size:12px;opacity:.85}
+#sk-chat-close{float:right;background:none;border:0;color:#fff;font-size:16px;cursor:pointer;margin-top:-26px}
+#sk-chat-msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;background:#f4f7fa}
+#sk-chat-msgs div{max-width:85%;padding:8px 11px;border-radius:12px;font-size:14px;line-height:1.4;white-space:pre-wrap}
+#sk-chat-msgs .yo{align-self:flex-end;background:#0b3d66;color:#fff}
+#sk-chat-msgs .bot{align-self:flex-start;background:#e8eef3;color:#222}
+#sk-chat-msgs .err{align-self:flex-start;background:#fdecea;color:#8b1a1a}
+#sk-chat-name{border:0;border-top:1px solid #ddd;padding:9px 12px;font-size:13px;outline:none}
+#sk-chat-row{display:flex;border-top:1px solid #ddd}
+#sk-chat-input{flex:1;border:0;padding:11px 12px;font-size:14px;outline:none}
+#sk-chat-send{border:0;background:#0b3d66;color:#fff;width:48px;cursor:pointer;font-size:16px}
+</style>
+<script>
+(function(){
+  var URL='https://n8n.skylinks.com.mx/webhook/skylinks-web';
+  var sid=localStorage.getItem('sk_sid');
+  if(!sid){ sid='web-'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); localStorage.setItem('sk_sid',sid); }
+  var btn=document.getElementById('sk-chat-btn'), box=document.getElementById('sk-chat'),
+      msgs=document.getElementById('sk-chat-msgs'), input=document.getElementById('sk-chat-input'),
+      nameInput=document.getElementById('sk-chat-name');
+  nameInput.value=localStorage.getItem('sk_name')||'';
+  nameInput.addEventListener('change',function(){ localStorage.setItem('sk_name',nameInput.value.trim()); });
+  function add(t,cls){ var d=document.createElement('div'); d.className=cls; d.textContent=t; msgs.appendChild(d); msgs.scrollTop=msgs.scrollHeight; }
+  btn.addEventListener('click',function(){
+    var open=box.style.display==='none'; box.style.display=open?'flex':'none';
+    if(open && !msgs.children.length) add('¡Hola! Soy del equipo de Skylinks. ¿En qué te ayudamos hoy?','bot');
+    if(open) input.focus();
+  });
+  document.getElementById('sk-chat-close').addEventListener('click',function(){ box.style.display='none'; });
+  async function send(){
+    var text=input.value.trim(); if(!text) return;
+    add(text,'yo'); input.value='';
+    try{
+      var r=await fetch(URL,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({message:text,sessionId:sid,name:nameInput.value.trim()})});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      var data=await r.json();
+      add(data.reply||'Gracias por tu mensaje, te atendemos en un momento.','bot');
+    }catch(e){ add('No pude conectar con el chat. Escríbenos por WhatsApp al +52 622 122 5103.','err'); }
+  }
+  document.getElementById('sk-chat-send').addEventListener('click',send);
+  input.addEventListener('keydown',function(ev){ if(ev.key==='Enter') send(); });
+})();
+</script>
   </body>
 </html>
