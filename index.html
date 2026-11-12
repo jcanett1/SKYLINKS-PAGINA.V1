@@ -74,7 +74,7 @@
     add(text,'yo'); input.value='';
     try{
       var r=await fetch(URL,{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({message:text,sessionId:sid,name:nameInput.value.trim()})});
+        body:JSON.stringify({message:text,sessionId:sid,name:(nameInput.value.trim()||'cliente')})});
       if(!r.ok) throw new Error('HTTP '+r.status);
       var data=await r.json();
       add(data.reply||'Gracias por tu mensaje, te atendemos en un momento.','bot');
