@@ -3,6 +3,7 @@ import { ShoppingBag, ChevronLeft, ChevronRight, Loader2, AlertCircle } from 'lu
 import { fetchProductsByCategory, searchProducts, SyscomProduct } from '../lib/syscomApi';
 import { useCart } from '../context/CartContext';
 import ProductSearch from './ProductSearch';
+import ProductDetailModal from './ProductDetailModal';
 
 interface ProductGridProps { categoryId: string; title?: string; searchQuery?: string; }
 
@@ -15,6 +16,7 @@ export default function ProductGrid({ categoryId, searchQuery }: ProductGridProp
   const [total, setTotal] = useState(0);
   const [searchTerm, setSearchTerm] = useState(searchQuery || '');
   const [selectedBrand, setSelectedBrand] = useState('');
+  const [detalle, setDetalle] = useState<SyscomProduct | null>(null);
   const { addItem } = useCart();
 
   useEffect(() => { setPage(1); }, [categoryId, searchQuery]);
@@ -103,7 +105,7 @@ export default function ProductGrid({ categoryId, searchQuery }: ProductGridProp
               const inStock = product.total_existencia > 0;
               return (
                 <div key={product.producto_id} className="group flex flex-col rounded-2xl border border-white/10 bg-surface overflow-hidden hover:border-cyan/40 hover:-translate-y-1 transition-all duration-300">
-                  <div className="relative h-48 bg-white/5 flex items-center justify-center overflow-hidden">
+                  <div className="relative h-48 bg-white/5 flex items-center justify-center overflow-hidden cursor-pointer" onClick={() => setDetalle(product)}>
                     {img ? (
                       <img src={img} alt={product.titulo} className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300" />
                     ) : (
@@ -117,7 +119,7 @@ export default function ProductGrid({ categoryId, searchQuery }: ProductGridProp
                       {product.marca_logo && <img src={product.marca_logo} alt={product.marca} className="h-4 w-auto opacity-70" style={{ filter: 'brightness(0) invert(1)' }} />}
                       <p className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider">{product.marca}</p>
                     </div>
-                    <h4 className="text-sm font-semibold text-zinc-100 line-clamp-2 mb-1 flex-1">{product.titulo}</h4>
+                    <h4 className="text-sm font-semibold text-zinc-100 line-clamp-2 mb-1 flex-1 cursor-pointer hover:text-cyan" onClick={() => setDetalle(product)}>{product.titulo}</h4>
                     <p className="text-xs text-zinc-500 mb-3">Modelo: {product.modelo}</p>
                     <p className={`text-xs font-semibold mb-3 ${inStock ? 'text-emerald-400' : 'text-zinc-500'}`}>{inStock ? `Stock: ${product.total_existencia} unidades` : 'Agotado'}</p>
                     <div className="mt-auto">
@@ -125,6 +127,10 @@ export default function ProductGrid({ categoryId, searchQuery }: ProductGridProp
                         <span className="font-display text-lg font-bold text-white">${price.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         <span className="text-[10px] text-zinc-500 font-mono">MXN</span>
                       </div>
+                      <button onClick={() => setDetalle(product)}
+                        className="w-full py-2.5 mb-2 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 border border-white/15 text-zinc-100 hover:border-cyan hover:text-cyan transition-colors">
+                        Ver detalles
+                      </button>
                       <button onClick={() => handleAddToCart(product)} disabled={!inStock}
                         className="w-full py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 bg-lime text-black hover:bg-cyan transition-colors duration-200 disabled:bg-zinc-800 disabled:text-zinc-500 disabled:cursor-not-allowed">
                         <ShoppingBag className="w-4 h-4" />
@@ -151,6 +157,10 @@ export default function ProductGrid({ categoryId, searchQuery }: ProductGridProp
             </div>
           )}
         </>
+      )}
+
+      {detalle && (
+        <ProductDetailModal product={detalle} categoryId={categoryId} onClose={() => setDetalle(null)} />
       )}
 
       {!loading && !error && products.length === 0 && (
