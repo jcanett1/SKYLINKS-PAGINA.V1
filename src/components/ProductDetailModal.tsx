@@ -44,9 +44,29 @@ export default function ProductDetailModal({ product, categoryId, onClose }: Pro
   const hasDiscount = discount > 0 && listPrice > 0 && discount < listPrice;
   const stock = detalle?.total_existencia ?? product.total_existencia;
   const inStock = stock > 0;
-  const imagenes = detalle?.imagenes && detalle.imagenes.length > 0
-    ? detalle.imagenes
-    : (product.img_portada ? [product.img_portada] : []);
+  // Las fotos de Syscom a veces vienen en http (se bloquean en página https),
+  // como objetos en vez de texto, o con URLs rotas: se normalizan, se fuerza
+  // https, se quitan duplicadas y la portada (que sí carga en el catálogo)
+  // queda siempre como respaldo.
+  const normUrl = (u: unknown): string => {
+    let s = '';
+    if (typeof u === 'string') s = u;
+    else if (u && typeof u === 'object') {
+      const o = u as Record<string, unknown>;
+      s = String(o.url || o.imagen || o.src || o.path || '');
+    }
+    s = s.trim();
+    if (s.startsWith('http://')) s = 'https://' + s.slice(7);
+    return s;
+  };
+  const imagenes = (() => {
+    const lista: string[] = [];
+    const push = (u: unknown) => { const v = normUrl(u); if (v && !lista.includes(v)) lista.push(v); };
+    (detalle?.imagenes || []).forEach(push);
+    push(product.img_portada);
+    return lista;
+  })();
+  const idxPortada = Math.max(0, imagenes.indexOf(normUrl(product.img_portada)));
   const imgActual = imagenes[Math.min(imgIdx, imagenes.length - 1)] || '';
   const caracteristicas = detalle?.caracteristicas || [];
   const recursos = detalle?.recursos || [];
@@ -84,7 +104,8 @@ export default function ProductDetailModal({ product, categoryId, onClose }: Pro
           <div className="p-5">
             <div className="relative h-72 sm:h-80 bg-white/5 rounded-2xl flex items-center justify-center overflow-hidden">
               {imgActual ? (
-                <img src={imgActual} alt={product.titulo} className="w-full h-full object-contain p-4" />
+                <img src={imgActual} alt={product.titulo} className="w-full h-full object-contain p-4"
+                  onError={(e) => { if (imgIdx !== idxPortada) setImgIdx(idxPortada); else (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
               ) : (
                 <ShoppingBag className="w-12 h-12 text-zinc-700" />
               )}
@@ -97,7 +118,8 @@ export default function ProductDetailModal({ product, categoryId, onClose }: Pro
                 {imagenes.map((src, i) => (
                   <button key={i} onClick={() => setImgIdx(i)}
                     className={`w-16 h-16 shrink-0 rounded-xl border-2 overflow-hidden bg-white/5 ${i === imgIdx ? 'border-cyan' : 'border-white/10 hover:border-white/30'}`}>
-                    <img src={src} alt={`Foto ${i + 1}`} className="w-full h-full object-contain p-1" />
+                    <img src={src} alt={`Foto ${i + 1}`} className="w-full h-full object-contain p-1"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                   </button>
                 ))}
               </div>
